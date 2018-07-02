@@ -1,0 +1,159 @@
+
+////////////////////////////
+// Named Tasks
+
+---
+Some text describing a task.
+...
+
+
+---
+Short desciption of task
+Longer description below
+possibly on multiple lines.
+...
+
+---
+Short desciption of task: Longer description
+possibly on multiple lines.
+...
+
+---
+Short desciption of task
+Longer description below
+possibly on multiple lines.
+pts: 3
+due: 2/3/2019
+...
+
+////////////////////////////
+// Lists
+
+---
+- Name of task one
+  pts: 3
+- Name of task two
+  Description of task two
+...
+
+---
+- name of task one
+- - Name of task one
+    pts: 3
+  - Name of task two
+    Description of task two
+- task three
+...
+
+---
++ purple task
++ blue task
++ orange task
+...
+
+---
++ purple task
++ - name of task one
+  - - Name of task one
+      pts: 3
+    - Name of task two
+      Description of task two
+  - task three
++ orange task
+...
+
+
+////////////////////////////
+// Declaring Dependencies
+
+---
+Some task
+With a description
+pts: 3
++ do me first
++ and also me
+...
+
+---
+Some task
+- do me first
+- and me second
+...
+
+---
+Some task
+- do me first
+- and me second
+...
+
+---
+Buy groceries
+- carrots
+- hummus
+...
+
+---
++ purple task
++ Buy groceries
+  - carrots
+  - hummus
++ orange task
+...
+
+
+////////////////////////////
+// References
+
+---
++ fix car
+  pts: 3
+  due: 1/2/3
++ Get groceries
+  due: 939393
+  - ? fix car
+  - ? Buy groceries
++ Play racket ball
+  - ? fix car
+
+...
+Buy Groceries
+  - ? fix car
+  - / recipies/hummus-ingredients
+---
+...
+
+---
+...
+
+---
+...
+
+---
+...
+
+---
+...
+
+---
+...
+
+---
+...
+
+---
+...
+
+---
+...
+
+---
+...
+
+---
+...
+
+---
+...
+
+
+

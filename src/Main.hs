@@ -1,0 +1,158 @@
+module Main where
+
+import System.Environment (getArgs)
+{-# LANGUAGE TypeSynonymInstances #-}
+import Data.Char (isAlpha)
+import qualified Data.Map as M (Map, empty, insert, foldlWithKey, fromList)
+import Data.List (isPrefixOf)
+
+data TaskType = Simple | Ordered | Unordered deriving Show
+
+data PropType = Description | DueDate | Priority | Points deriving (Show, Eq, Ord)
+
+type Body = M.Map PropType String
+
+data Task = SimpleTask Body
+          | OrderedTasks [Task]
+          | UnorderedTasks [Task]
+--          deriving Show
+
+instance Show Task where
+  show aTask = showTaskIndented aTask 0
+    where showTaskIndented :: Task -> Int -> String
+          showTaskIndented (SimpleTask body) n = "\n" ++ (unlines $ map (spaces n ++) $ bodyToLines body)
+          showTaskIndented (OrderedTasks []) _ = ""
+          showTaskIndented (OrderedTasks (t:ts)) n ="\n" ++ "-" ++ (drop 1 $ showTaskIndented t (n+2)) ++ showTaskIndented (OrderedTasks ts) n 
+          showTaskIndented (UnorderedTasks []) _ = ""
+          showTaskIndented (UnorderedTasks (t:ts)) n = "\n" ++ "+" ++ (drop 1 $ showTaskIndented t (n+2)) ++ showTaskIndented (OrderedTasks ts) n 
+          spaces n = replicate n ' ' 
+
+
+
+bodyToLines :: Body  -> [String]
+bodyToLines = M.foldlWithKey (\bdLines k v -> bdLines ++ [show k ++ ":" ++ spaceAfterKey k ++ fstLine v]
+                                                            ++ (map (textIndent ++) $ rest v)) []
+
+  where fstLine  = head . lines
+        rest  = snd . splitAt 1 . lines
+        textIndent = replicate 13 ' '
+        spaceAfterKey key = replicate (13 - length (show key)) ' '
+
+
+          
+main :: IO ()
+main = do
+  [fileName] <- getArgs
+  txt <- fmap lines $ readFile fileName
+  putStrLn ("Processing file " ++ fileName ++ "\n")
+--  putStrLn (show txt)
+  putStrLn "The following is a result of 'show $ getListItems '-' txt)\n"
+  putStrLn (show $ getListItems '-' txt)
+  putStrLn "\n\n\n\n\n"
+  putStrLn "The following is a result of 'show $ parseFile txt\n"
+  putStrLn (show $ parseFile txt)
+  putStrLn "The following is a result of 'show $ parseFile txt' with my version of show"
+  putStrLn (show $ parseFile txt)
+
+
+parseFile :: [String] -> Task
+parseFile file = case tType of
+  Simple    -> SimpleTask (getBody file)
+  Ordered   -> OrderedTasks (map parseFile (getListItems '-' file))
+  Unordered -> UnorderedTasks (map parseFile (getListItems '+' file))
+  where tType = taskType (head $ head file)
+
+getListItems :: Char -> [String] -> [[String]]
+getListItems _ [] = []
+getListItems char txt = map (map (drop 2)) $ oneItemAtATime txt []
+  where oneItemAtATime :: [String] -> [[String]] -> [[String]]
+        oneItemAtATime [] items = items
+        oneItemAtATime remString items = oneItemAtATime (dropWhile ((char /=) . head) (tail remString)) 
+                                                        (items ++ [[head remString] ++ takeWhile ((char /=) . head) (tail remString)]) 
+{--         
+getListItems :: Char -> [String] -> [[String]]
+getListItems _ [] = []
+getListItems char txt = [item] ++ (getListItems char rest)
+  where (firstMinusHead, rest) = break ((== char) . head) (tail txt)
+        item = map (drop 2) ([head txt] ++ firstMinusHead)
+--}       
+getBody :: [String] -> Body
+getBody [] = M.empty
+getBody body = getProperties $ getDescription
+  where (description,remainder) = break hasProperty body
+        getDescription :: ([String], M.Map PropType String)
+        getDescription 
+          |description == [] = (body, M.empty)
+          |otherwise         = (remainder, M.insert Description (init $ unlines $ map (dropWhile (== ' '))  description) M.empty) -- init drops terminal \n 
+        hasProperty line
+          |"due" `isPrefixOf` line        = True
+          |"priority: " `isPrefixOf` line = True
+          |"points: " `isPrefixOf` line   = True
+          |otherwise                      = False 
+        getProperties :: ([String], M.Map PropType String) -> M.Map PropType String
+        getProperties ([], mapIn) = mapIn
+        getProperties (line : moreLines, mapIn)
+          |"due: " `isPrefixOf`line = getProperties (moreLines, M.insert DueDate (drop 5 line) mapIn) 
+          |"priority: " `isPrefixOf`line = getProperties (moreLines, M.insert Priority (drop 10 line) mapIn)
+          |"points: " `isPrefixOf`line = getProperties (moreLines, M.insert Points (drop 8 line) mapIn)
+          |otherwise = error "A line with an unknown property has been entered into a Task."
+         
+  
+
+taskType :: Char -> TaskType
+taskType c
+  |c == '-'  = Ordered
+  |c == '+'  = Unordered
+  |isAlpha c = Simple
+  |otherwise = error "\n\n\nERROR:  Line must begin with '-', '+', or a letter"
+
+
+showBody :: Body -> String
+showBody = M.foldlWithKey (\str k v -> str ++ "\n\n" ++ show k ++ ":" ++ replicate (13 - (length (show k))) ' ' ++ valLine1 v ++ valRest v) ""
+  where valLine1 = head . lines
+        valRest val 
+          |(length $ lines val) == 1 = ""
+          |otherwise        = "\n" ++ (unlines $ map (replicate 14 ' ' ++) (tail $ lines val))
+bodyLines :: Body -> [String]
+bodyLines = M.foldlWithKey (\blines k v -> blines ++ [show k ++ ":" ++ spaceAfterKey k ++ valLine1 v] ++ valRest v) []
+  where spaceAfterKey key = replicate (13 - length (show key)) ' '
+        valLine1 = head . lines
+        valRest val
+          |length val == 1 = []
+          |otherwise       = map (replicate 14 ' ' ++) (tail $ lines val)
+
+
+bodyLinesWithOffset :: Task -> Int -> String
+bodyLinesWithOffset (SimpleTask body) offset = unlines $ map (nspaces offset ++) (bodyLines body)
+  where nspaces n = replicate n ' '  
+bodyLinesWithOffset _ _ = error "Task must be a SimpleTask"
+
+-- Test Data
+testBody :: Body
+testBody = M.fromList [(Description,"This is just a test body\nwith two lines of description.\nWell, maybe three lines."), (DueDate, "9/18/52"), (Priority, "Top"), (Points, "1")] 
+
+testBody2 :: Body
+testBody2 = M.fromList [(Description,"This is the second task in a list."), (DueDate, "6/29/18"), (Priority, "Low"), (Points, "5")] 
+
+testBody3 :: Body
+testBody3 = M.fromList [(Description,"This is the third task in a list.\nThis description has two lines."), (DueDate, "7/4/18"), (Priority, "Low"), (Points, "5")] 
+
+simpleTaskText :: String
+simpleTaskText = "This is a simple task since it starts\nwith a character.\ndue: 6/30/18\npriority: 2"
+
+orderedTaskText :: String
+orderedTaskText = "- First ordered Task\nSecond line\n  due: now\n  priority: top\n- Second ordered Task\n  with a second line\n  due: tomorrow\n- Third ordered Task"
+ 
+
+aSimpleTask :: Task
+aSimpleTask = SimpleTask testBody
+
+anUnorderedTask :: Task
+anUnorderedTask = UnorderedTasks [SimpleTask testBody, SimpleTask testBody2, SimpleTask testBody3]
+
+
+anOrderedTask :: Task
+anOrderedTask = OrderedTasks [SimpleTask testBody, SimpleTask testBody2, SimpleTask testBody3]
+
+aCompoundTask :: Task
+aCompoundTask = OrderedTasks [SimpleTask testBody, UnorderedTasks [SimpleTask testBody, SimpleTask testBody2, SimpleTask testBody3], SimpleTask testBody]
