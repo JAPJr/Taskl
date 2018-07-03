@@ -18,24 +18,27 @@ data Task = SimpleTask Body
 --          deriving Show
 
 instance Show Task where
-  show aTask = showTaskIndented aTask 0
-    where showTaskIndented :: Task -> Int -> String
-          showTaskIndented (SimpleTask body) n = "\n" ++ (unlines $ map (spaces n ++) $ bodyToLines body)
-          showTaskIndented (OrderedTasks []) _ = ""
-          showTaskIndented (OrderedTasks (t:ts)) n ="\n" ++ "-" ++ (drop 1 $ showTaskIndented t (n+2)) ++ showTaskIndented (OrderedTasks ts) n 
-          showTaskIndented (UnorderedTasks []) _ = ""
-          showTaskIndented (UnorderedTasks (t:ts)) n = "\n" ++ "+" ++ (drop 1 $ showTaskIndented t (n+2)) ++ showTaskIndented (OrderedTasks ts) n 
-          spaces n = replicate n ' ' 
-
-
+  show aTask = unlines $ taskLines aTask
+    where taskLines (SimpleTask body) = bodyToLines body
+          taskLines (OrderedTasks []) = []
+          taskLines (OrderedTasks (t:ts))
+           |length tLines == 1 = fstLine ++ taskLines (OrderedTasks ts)
+           |otherwise          = fstLine ++ map ("  " ++) (tail tLines) ++ taskLines (OrderedTasks ts)
+            where tLines = taskLines t
+                  fstLine = ["- " ++ (head tLines)]
+          taskLines (UnorderedTasks []) = []
+          taskLines (UnorderedTasks (t:ts))
+           |length tLines == 1 = fstLine ++ taskLines (UnorderedTasks ts)
+           |otherwise          = fstLine ++ map ("  " ++) (tail tLines) ++ taskLines (UnorderedTasks ts)
+            where tLines = taskLines t
+                  fstLine = ["+ " ++ (head tLines)]
 
 bodyToLines :: Body  -> [String]
 bodyToLines = M.foldlWithKey (\bdLines k v -> bdLines ++ [show k ++ ":" ++ spaceAfterKey k ++ fstLine v]
                                                             ++ (map (textIndent ++) $ rest v)) []
-
   where fstLine  = head . lines
         rest  = snd . splitAt 1 . lines
-        textIndent = replicate 13 ' '
+        textIndent = replicate 14 ' '
         spaceAfterKey key = replicate (13 - length (show key)) ' '
 
 
@@ -50,8 +53,6 @@ main = do
   putStrLn (show $ getListItems '-' txt)
   putStrLn "\n\n\n\n\n"
   putStrLn "The following is a result of 'show $ parseFile txt\n"
-  putStrLn (show $ parseFile txt)
-  putStrLn "The following is a result of 'show $ parseFile txt' with my version of show"
   putStrLn (show $ parseFile txt)
 
 
@@ -69,13 +70,7 @@ getListItems char txt = map (map (drop 2)) $ oneItemAtATime txt []
         oneItemAtATime [] items = items
         oneItemAtATime remString items = oneItemAtATime (dropWhile ((char /=) . head) (tail remString)) 
                                                         (items ++ [[head remString] ++ takeWhile ((char /=) . head) (tail remString)]) 
-{--         
-getListItems :: Char -> [String] -> [[String]]
-getListItems _ [] = []
-getListItems char txt = [item] ++ (getListItems char rest)
-  where (firstMinusHead, rest) = break ((== char) . head) (tail txt)
-        item = map (drop 2) ([head txt] ++ firstMinusHead)
---}       
+      
 getBody :: [String] -> Body
 getBody [] = M.empty
 getBody body = getProperties $ getDescription

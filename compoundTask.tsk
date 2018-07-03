@@ -2,11 +2,11 @@
   Due: 6/30/18
   Priority: Top
 - + This is the first Unordered subTaks of the second Task
-   Let's see if this works
+    Let's see if this works
   + This is the second subTask
     Due: 9/18/18
     Priority: Low
-- - This is the third Ordere Task
+- - This is the third Ordered Task
   - + First subTask of third Ordered Task
     + Second subTaks of third Ordered Task
 - This is the fourth Ordered Task
